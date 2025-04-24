@@ -1,11 +1,14 @@
 import numpy as np
 import cv2
 from picamera2 import Picamera2
+import numpy as np
+
 
 # QRコード一辺の長さ [m]
 marker_size = 0.03
 
-import numpy as np
+# リアルタイムの画像表示の有り無し
+Image_preview = 0  # 画像の表示をする場合は1,しない場合(light)は0
 
 # カメラの内部パラメータ
 camera_matrix = np.array([
@@ -49,17 +52,20 @@ def main():
 
     while True:
         frame = picam2.capture_array()
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         retval, decoded_info, points, _ = qrd.detectAndDecodeMulti(frame)
 
-        # ここで画像を表示
-        cv2.imshow('cv2', frame)  # ← 追加
-
-        # QRコード検出・姿勢推定処理
         if retval and points is not None:
             points = points.astype(np.int32)
             for dec_inf, point in zip(decoded_info, points):
                 if dec_inf == '':
                     continue
+
+                if Image_preview == 1:
+                    # QRコードの枠線を描画
+                    frame = cv2.polylines(frame, [point], True, (0, 255, 0), 2, cv2.LINE_AA)
+
+                # 姿勢推定
                 rvec, tvec, _ = my_estimatePoseSingleMarkers(points, marker_size, camera_matrix, distortion_coeff)
                 tvec = np.squeeze(tvec)
                 rvec = np.squeeze(rvec)
@@ -67,19 +73,23 @@ def main():
                 transpose_tvec = tvec[np.newaxis, :].T
                 proj_matrix = np.hstack((rvec_matrix, transpose_tvec))
                 euler_angle = cv2.decomposeProjectionMatrix(proj_matrix)[6]
+
+                # ここで処理（例：print、他の関数に渡すなど）
                 print("QRデータ:", dec_inf)
                 print("x:", tvec[0], "y:", tvec[1], "z:", tvec[2])
                 print("roll:", euler_angle[0], "pitch:", euler_angle[1], "yaw:", euler_angle[2])
                 print("-" * 40)
 
-        # ここでキー入力を1ms待つ（qで終了）
+            if Image_preview == 1:
+                # 画像を表示
+                cv2.imshow('cv2', frame)
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
+            # qが入力されたら終了
             break
 
-    cv2.destroyAllWindows()  # 全ウィンドウを閉じる
-
-        # 適宜、ループを抜ける条件をつけてください
-        # 例：一定回数でbreakする、Ctrl+Cで止めるなど
+    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()
+
