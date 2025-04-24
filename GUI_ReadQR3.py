@@ -1,11 +1,10 @@
 import numpy as np
 import cv2
 from picamera2 import Picamera2
+import numpy as np
 
 # QRコード一辺の長さ [m]
 marker_size = 0.03
-
-import numpy as np
 
 # カメラの内部パラメータ
 camera_matrix = np.array([
